@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="es">
+	<head>
+		<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+		<meta name="viewport" content="width=device-width, minimum-scale=1.0, maximum-scale=1.0" />
+		<script src="https://code.jquery.com/jquery-3.4.1.min.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
+		<!--script type="text/javascript" src="RaicesPol.js?v=1.0"></script-->
+		<!--script type="text/javascript" src="jquery-3.4.1.min.js"></script-->
+		<script type="text/javascript" charset="utf-8">
+			//  Variables de control para la validación del polinomio
+			var _grado = '';
+			var _grado_real;
+			var _polinomio = new Array();
+			var _polinomio_derivado = new Array();
+			var _0 = '0'.charCodeAt();
+			var _9 = '9'.charCodeAt();
+			var canvas;
+			var context;
+			var delta = new Object();
+			var arrastrar = false;
+			var _inicio_grafica_c;
+			var _fin_grafica_c;
+			var _X = 0;
+			var _Y = 0;
+			var _step_grafica_c = 10;
+			var _raices = new Array();
+			var _f_r;
+
+			window.onload = function(){
+				document.getElementById('grado_pol').focus();
+			}
+
+			//  Se valida que la entrada str represente un número
+			function validaGrado(str){
+				var resultado = true;
+				if(str.length > 0){
+					for(var i = 0; i < str.length; i++){
+						if(str[i].charCodeAt() < _0 || _9 < str[i].charCodeAt()){
+							resultado = false;
+						}
+					}
+				} else {
+					resultado = false;
+				}
+				return resultado;
+			}
+			function validaInput(str){
+				var resultado = true;
+				if(str.length > 0){
+					for(var i = 0; i < str.length; i++){
+						if(str[i].charCodeAt() < _0 || _9 < str[i].charCodeAt()){
+							if(str[i].charCodeAt() != '-'.charCodeAt() && str[i].charCodeAt() != '+'.charCodeAt() && str[i].charCodeAt() != '.'.charCodeAt()){
+								resultado = false;
+							}
+						}
+					}
+				} else {
+					resultado = false;
+				}
+				return resultado;
+			}
+			function derivar(_grado_polinomio, _coeficientes_polinomio){
+				var _derivado = new Array();
+				if(_grado_polinomio > 0){
+					for(var i = _grado_polinomio; i > 0; i--){
+						_derivado[i-1] = _coeficientes_polinomio[i] * i;
+					}
+				} else {
+					_derivado[0] = 0;
+				}
+				return _derivado;
+			}
+
+			function opResult(_grado_polinomio, _coeficientes_polinomio){
+				//  Variables de control para mostrar el polinomio.
+				var _pol_res = '';                                                              //  Aquí se guarda el resultado
+				var _coef_inicio = _coeficientes_polinomio[_grado_polinomio] != 0;              //  Verifica el coeficiente del primer término
+				var _verificar_grado = _coeficientes_polinomio[_grado_polinomio] == 0;          //  Verifica si el grado del polinomio es correcto o debe ser cambiado
+				_grado_real = _grado_polinomio;                                                 //  Guarda el verdadero valor del grado del polinomio
+				//_f_r = _grado_real;
+
+				//  Primer término del polinomio.
+				if(_coef_inicio && _grado_polinomio > 0){
+					_pol_res += (_coeficientes_polinomio[_grado_polinomio] < 0? ' - ' : '');    //  Se encarga de poner un signo menos en caso de que sea negativo el primer número
+					_pol_res += ((Math.abs(_coeficientes_polinomio[_grado_polinomio]) != 1? Math.abs(_coeficientes_polinomio[_grado_polinomio]) : '') + (_grado_polinomio != 1? 'x<sup>' + _grado_polinomio + '</sup>' : 'x') + (_coeficientes_polinomio[_grado_polinomio - 1] > 0? ' + ' : (_coeficientes_polinomio[_grado_polinomio - 1] < 0? ' - ' : '')));
+				}
+
+				//  Los términos después del primero y antes del último.
+				for(var i = _grado_polinomio - 1; i > 0; i--){
+					if(_coeficientes_polinomio[i] != 0){
+						if(_verificar_grado){
+							_grado_real = i;
+							_verificar_grado = _coeficientes_polinomio[i] == 0;
+						}
+						_pol_res += (Math.abs(_coeficientes_polinomio[i]) != 1? Math.abs(_coeficientes_polinomio[i]) : '') + (i != 1? 'x<sup>' + i + '</sup>' : 'x') + (_coeficientes_polinomio[i - 1] > 0? ' + ' : (_coeficientes_polinomio[i - 1] < 0? ' - ' : ''));
+					} else {
+						if(_coeficientes_polinomio[i - 1] != 0 && _pol_res.length > 0){
+							_pol_res += (_coeficientes_polinomio[i-1] > 0? ' + ' : ' - ');
+						}
+						if(_coeficientes_polinomio[i - 1] != 0 && _pol_res.length == 0 && (i - 1) != 0){
+							_pol_res += (_coeficientes_polinomio[i-1] < 0? ' - ' : '');
+						}
+					}
+				}
+
+				//  El último término del polinomio.
+				if(_pol_res.length > 0){
+					if(_coeficientes_polinomio[0] != 0){
+						_pol_res += Math.abs(_coeficientes_polinomio[0]);
+					}
+				} else {
+					_pol_res = (_coeficientes_polinomio[0] < 0? ' - ' : '') + Math.abs(_coeficientes_polinomio[0]);
+					_grado_real = 0;
+				}
+				return _pol_res;
+			}
+
+			//  Funciones para obtener valores de los polinomios evaluados en x, así como su derivada
+			function f_de(x){
+				var _resultado = 0;
+				var _x;
+				for(var i = _grado; i > 0; i--){
+					_x = x;
+					for(var j = i; j > 1; j--){
+						_x *= x;
+					}
+					_resultado += _polinomio[i] * _x;
+				}
+				_resultado += _polinomio[0];
+				return _resultado;
+			}
+			function f_prima_de(x){
+				var _resultado = 0;
+				var _x;
+				for(var i = _grado - 1; i > 0; i--){
+					_x = x;
+					for(var j = i; j > 1; j--){
+						_x *= x;
+					}
+					_resultado += _polinomio_derivado[i] * _x;
+				}
+				_resultado += _polinomio_derivado[0];
+				return _resultado;
+			}
+
+			//  Esta función sirve para obtener las cotas mediante división sintética
+			function obtenerIntervalo(_grad, _pol){
+				var _intervalo = new Array(2);                                                  //  En esta variable se guardan las cotas
+				var _grad_control = 0;                                                          //  En caso de requerir un polinomio a partir de una división sintética
+				var _pol_control = new Array();                                                 //  En caso de requerirse
+				var _div_coeficientes = new Array();                                            //  Guarda los valores necesarios para la división sintética
+				var _div_length = _grad;
+				var _valid = false;
+				var _recorrido = true;
+				var _cota = _pol[0];
+				var _d_dire;
+				var _cambio = false;
+				var direccion = 0;
+				_intervalo[0] = null;
+				_intervalo[1] = null;
+
+				while(!_valid && _div_length > 0){
+					if(_pol[_div_length] != 0){
+						_valid = true;
+					} else {
+						_div_length--;
+					}
+				}
+
+				for(var i = _div_length; i >= 0; i--){
+					_div_coeficientes[i] = _pol[i];
+				}
+				if(_div_coeficientes[_div_length] < 0){
+					for(var i = _div_length; i >= 0; i--){
+						_div_coeficientes[i] = -(_div_coeficientes[i]);
+					}
+					_cambio = true;
+				}
+				while(_recorrido && (_intervalo[0] == null || _intervalo[1] == null)){
+					if(direccion > 0){
+						_cota = _cota + 1;
+					} else if(direccion < 0){
+						_cota = _cota - 1;
+					}
+					_pol_control[_div_length-1] = _div_coeficientes[_div_length];
+					if(_pol_control[_div_length-1] < 0){                                        //  Primer coeficiente
+						_d_dire = 1;
+					} else {
+						_d_dire = -1;
+					}
+					for(var n = _div_length; n > 1; n--){
+						_pol_control[n-2] = _pol_control[n-1]*_cota + _div_coeficientes[n-1];
+						if(_pol_control[n-2] < 0 && _d_dire < 0){                               //  Coeficientes intermedios
+							_d_dire = 1;
+						}
+					}
+					if((_pol_control[0]*_cota + _div_coeficientes[0]) < 0 && _d_dire < 0){      //  Último coeficiente
+						_d_dire = 1;
+					}
+
+					var n_coef = "";
+					for(var i = _div_length - 1; i >= 0; i--){
+						n_coef += _pol_control[i] + " ";
+					}
+
+					if(direccion == 0){
+						direccion = _d_dire;
+					}
+
+					//	Aún no estoy seguro de que esta validación sea la más adecuada y se contemplan futuros cambios
+					if((_pol_control[0]*_cota + _div_coeficientes[0]) == 0 && direccion < 0){	//	Es posible que funcione también _d_dire en vez de direccion
+						_d_dire = -(_d_dire);
+					}
+
+					if((_d_dire < 0 && direccion > 0) || (_d_dire > 0 && direccion < 0)){
+						if(_intervalo[1] == null){
+							if(direccion < 0){
+								_intervalo[1] = _cota + 1;
+							} else {
+								_intervalo[1] = _cota;
+							}
+							_cambio = false;
+							for(var i = _div_length; i > 0; i--){
+								_div_coeficientes[i] = (i%2==0? _pol[i] : -(_pol[i]));
+							}
+							_div_coeficientes[0] = _pol[0];
+							if(_div_coeficientes[_div_length] < 0){
+								for(var i = _div_length; i >= 0; i--){
+									_div_coeficientes[i] = -(_div_coeficientes[i]);
+								}
+								_cambio = true;
+							}
+							_cota = _div_coeficientes[0];
+							direccion = 0;
+						} else if(_intervalo[0] == null){
+							if(direccion < 0){
+								_intervalo[0] = -(_cota + 1);
+							} else {
+								_intervalo[0] = -(_cota);
+							}
+							_recorrido = false;
+						}
+					}
+				}
+
+				_intervalo[0] = Math.round(_intervalo[0]);
+				_intervalo[1] = Math.round(_intervalo[1]);
+
+				if(_intervalo[0] > _intervalo[1]){
+					var _comdn = _intervalo[0];
+					_intervalo[1] = _intervalo[0];
+					_intervalo[0] = _comdn;
+				}
+				if(_intervalo[0] == _intervalo[1]){
+					_intervalo[0] -= 1;
+					_intervalo[1] += 1;
+				}
+
+				console.log("La cota menor es: " + _intervalo[0]);
+				console.log("La cota mayor es: " + _intervalo[1]);
+
+				return _intervalo;
+			}
+
+			function getX(dato, size_graf, _intervalo){
+				return ((size_graf/(_intervalo[1] - _intervalo[0])) * (dato - _intervalo[0]));
+			}
+			function getY(dato, size_graf, _intervalo){
+				return (size_graf/2 - (dato*size_graf/(_intervalo[1] - _intervalo[0])));
+			}
+
+			function minimizaGraf(){
+				_inicio_grafica_c -= 1/4;
+				_fin_grafica_c += 1/4;
+				//if(_step_grafica_c > 10){
+				//    _step_grafica_c--;
+				//}
+				generaGrafica(_inicio_grafica_c, _fin_grafica_c, _step_grafica_c);
+			}
+			function maximizaGraf(){
+				if(_fin_grafica_c - _inicio_grafica_c > 1){
+					_inicio_grafica_c += 1/4;
+					_fin_grafica_c -= 1/4;
+					//if(_step_grafica_c < 30){
+					//    _step_grafica_c++;
+					//}
+					generaGrafica(_inicio_grafica_c, _fin_grafica_c, _step_grafica_c);
+				}
+			}
+
+			function oMousePos(canvas, evt) {
+				var rect = canvas.getBoundingClientRect();
+				return {x: Math.round(evt.clientX - rect.left), y: Math.round(evt.clientY - rect.top)};
+			}
+
+			function siguienteX(_x_, _y_, _y_prima){
+				var _resultd;
+				if(_y_prima != 0){
+					_resultd = _x_ - _y_/_y_prima;
+				} else {
+					_resultd = _x_;
+				}
+				return _resultd;
+			}
+			function obtenerRaices(_ini_i, _fin_i){
+				_f_r = 0;
+				_ini_i--;
+				_fin_i++;
+				var _new_x = _ini_i;
+				var _pos = f_de(_new_x) > 0;
+				for(var i = _ini_i; i <= _fin_i && _f_r < _grado_real + 1; i+=0.1){
+					/*if(f_de(i) == 0){
+						_raices[_f_r] = i.toFixed(12);
+						_raices[_f_r] *= 1;
+						_f_r++;
+						i+=0.1;
+					} else*/
+					if((_pos && f_de(i) < 0) || (!_pos && f_de(i) > 0)){
+						//if(f_prima_de(i+0.1)*f_prima_de(i) > 0){
+							_new_x = i;
+							for(var j = 0; j < 20; j++){
+								_new_x = siguienteX(_new_x.toFixed(12)*1, f_de(_new_x.toFixed(12)*1), f_prima_de(_new_x.toFixed(12)*1));
+							}
+							if(f_de(_new_x).toFixed(12) == 0){
+								console.log(1 + " _ " + i.toFixed(1)*1 + " _ " + _new_x);
+								_raices[_f_r] = _new_x.toFixed(12)*1;
+								_f_r++;
+							}
+						/*} else {
+							console.log("Error..." + i);
+						}*/
+					} else if(f_prima_de(i)*f_prima_de(i+0.1) < 0 || (f_de(i) == 0)){
+						_new_x = i;
+						var _aux = siguienteX(_new_x, f_de(_new_x), f_prima_de(_new_x));
+						if(i-0.1 < _aux && _aux < i+0.1){
+							for(var j = 0; j < 100; j++){
+								_new_x = siguienteX(_new_x, f_de(_new_x), f_prima_de(_new_x));
+							}
+							if(f_de(_new_x).toFixed(12) == 0 && (i-0.1 < _new_x && _new_x < i+0.1)){
+								console.log(2 + " _ " + i + " _ " + _new_x);
+								_raices[_f_r] = _new_x.toFixed(12)*1;
+								_f_r++;
+							}
+						}
+
+						i+=0.1;
+						_new_x = i;
+						_aux = siguienteX(_new_x.toFixed(12)*1, f_de(_new_x.toFixed(12)*1), f_prima_de(_new_x.toFixed(12)*1));
+						if(i-0.1 < _aux && _aux < i+0.1){
+							for(var j = 0; j < 100; j++){
+								_new_x = siguienteX(_new_x, f_de(_new_x), f_prima_de(_new_x));
+							}
+							if(f_de(_new_x).toFixed(12) == 0 && (i-0.1 < _new_x && _new_x < i+0.1)){
+								console.log(2 + " _ " + i + " _ " + _new_x);
+								_raices[_f_r] = _new_x.toFixed(12)*1;
+								_f_r++;
+							}
+						}
+					}
+					_pos = f_de(i) > 0;
+				}
+				console.log(_raices);
+			}
+
+			function generaGrafica(_inicio, _fin, _step){
+				var _intervalo = new Array();
+				canvas = document.querySelector('canvas');
+				var _dim_x = document.getElementById('funcion_pol').offsetWidth;
+				var _dim_y = document.getElementById('funcion_pol').offsetHeight;
+				canvas.width = _dim_x;
+				canvas.height = _dim_y;
+				_intervalo[0] = _inicio - (_fin - _inicio)*_X/_dim_x;
+				_intervalo[1] = _fin - (_fin - _inicio)*_X/_dim_x;								//	El eje y está invertido
+				context = canvas.getContext('2d');
+				context.clearRect(0, 0, canvas.width, canvas.height);
+				var _x = _intervalo[0]*_step - 1;
+				var _lim_y;
+				var _lim_x;
+				var _intrvl_l = 1;
+				var _cord_cx;
+				var _cord_cy;
+				var _size_tg = 15;
+
+				//	Curva o recta
+				context.beginPath();
+				context.moveTo(getX(_x/_step, _dim_x, _intervalo), getY(f_de(_x/_step), _dim_y, _intervalo) + _Y);
+				_x++;
+				while(_x <= _intervalo[1]*_step + 1){
+					_lim_y = getY(f_de(_x/_step), _dim_y, _intervalo) + _Y;
+					_lim_x = getX(_x/_step, _dim_x, _intervalo);
+					//if(_lim_y > 0 && _lim_y < _dim_y){
+						if(((f_prima_de(_x/_step) / (f_prima_de((_x-1)/_step)==0? 0.0001 : f_prima_de((_x-1)/_step))) < 0.9)
+						|| ((f_prima_de(_x/_step) / (f_prima_de((_x-1)/_step)==0? 0.0001 : f_prima_de((_x-1)/_step))) > 1.4)){
+							//console.log("Suavizando gráfica...");
+							for(var i = 0; i < 10; i++){
+								context.lineTo(getX(((_x + i*0.1)/_step), _dim_x, _intervalo), (getY(f_de((_x + i*0.1)/_step), _dim_y, _intervalo) + _Y));
+							}
+						} else {
+							context.lineTo(_lim_x, _lim_y);
+						}
+					//}
+					_x++;
+				}
+				context.strokeStyle = "#2636ff";
+				context.lineWidth = 4;
+				context.stroke();
+
+				while((_intrvl_l*20) < (_intervalo[1] - _intervalo[0])*_step){
+					_intrvl_l*=10;
+				}
+				_intrvl_l/=10;
+				_size_tg = ((_size_tg*_intrvl_l*_step)/(_intervalo[1] - _intervalo[0]));
+
+				//	Dibujo del eje x
+				context.beginPath();
+				context.moveTo(0, (_dim_y/2) + _Y);
+				context.lineTo(_dim_x,(_dim_y/2) + _Y);
+				context.strokeStyle = "#000";
+				context.lineWidth = 1;
+				context.stroke();
+				for(var i = _intrvl_l; i < (_intervalo[1]); i+=_intrvl_l){
+					_cord_cx = getX(i, _dim_x, _intervalo);
+					_cord_cy = getY((_intrvl_l/5), _dim_y, _intervalo) + _Y;
+					context.beginPath();
+					context.moveTo(_cord_cx, getY(-(_intrvl_l/5), _dim_y, _intervalo) + _Y);
+					context.lineTo(_cord_cx, _cord_cy);
+					context.strokeStyle = "green";
+					context.lineWidth = 1;
+					//context.stroke();
+
+					//context.beginPath();
+					context.font = _size_tg + "px Arial";
+					context.fillText(i.toFixed(1)*1, _cord_cx, _cord_cy);
+					context.stroke();
+				}
+				for(var i = -_intrvl_l; i > (_intervalo[0]); i-=_intrvl_l){
+					_cord_cx = getX(i, _dim_x, _intervalo);
+					_cord_cy = getY((_intrvl_l/5), _dim_y, _intervalo) + _Y;
+					context.beginPath();
+					context.moveTo(_cord_cx, getY(-(_intrvl_l/5), _dim_y, _intervalo) + _Y);
+					context.lineTo(_cord_cx, _cord_cy);
+					context.strokeStyle = "green";
+					context.lineWidth = 1;
+					//context.stroke();
+
+					//context.beginPath();
+					context.font = _size_tg + "px Arial";
+					context.fillText(i.toFixed(1)*1, _cord_cx, _cord_cy);
+					context.stroke();
+				}
+
+				//	Dibujo del eje y
+				context.beginPath();
+				context.moveTo(((-_intervalo[0])*_dim_x/(_intervalo[1] - _intervalo[0])), 0);
+				context.lineTo(((-_intervalo[0])*_dim_x/(_intervalo[1] - _intervalo[0])), _dim_y);
+				context.strokeStyle = "#000";
+				context.lineWidth = 1;
+				context.stroke();
+				for(var i = _intrvl_l; (getY(i, _dim_y, _intervalo) + _Y) > 0; i+=_intrvl_l){
+					_cord_cx = getX((_intrvl_l/5), _dim_x, _intervalo);
+					_cord_cy = getY(i, _dim_y, _intervalo) + _Y;
+					context.beginPath();
+					context.moveTo(getX(-(_intrvl_l/5), _dim_x, _intervalo), _cord_cy);
+					context.lineTo(_cord_cx, _cord_cy);
+					context.strokeStyle = "green";
+					context.lineWidth = 1;
+					//context.stroke();
+
+					//context.beginPath();
+					context.font = _size_tg + "px Arial";
+					context.fillText(i.toFixed(1)*1, _cord_cx, _cord_cy);
+					context.stroke();
+				}
+				for(var i = -_intrvl_l; (getY(i, _dim_y, _intervalo) + _Y) < _dim_y; i-=_intrvl_l){
+					_cord_cx = getX((_intrvl_l/5), _dim_x, _intervalo);
+					_cord_cy = getY(i, _dim_y, _intervalo) + _Y;
+					context.beginPath();
+					context.moveTo(getX(-(_intrvl_l/5), _dim_x, _intervalo), _cord_cy);
+					context.lineTo(_cord_cx, _cord_cy);
+					context.strokeStyle = "green";
+					context.lineWidth = 1;
+					//context.stroke();
+
+					//context.beginPath();
+					context.font = _size_tg + "px Arial";
+					context.fillText(i.toFixed(1)*1, _cord_cx, _cord_cy);
+					context.stroke();
+				}
+			}
+
+			//  En cuanto se obtenga el grado del polinomio el texto de la vista se cambiará
+			function gradoPol(){
+				_grado = document.getElementById('grado_pol').value;
+				if(_grado.length == 0){
+					alert("Es necesario indicar el grado del polinomio.");
+				} else {
+					if(validaGrado("" + _grado) && _grado >= 0){
+						var _html = '<p id="bvnda">Ingrese el coeficiente a<sub>'+ _grado +'</sub></p>'+
+						'<input type="text" name="coeficiente_pol" id="coeficiente_pol" value="" placeholder="Coeficiente '+ _grado +'" onkeyup="if(event.keyCode == 13){ coeficientePol('+ _grado +'); }" />'+
+						'<br />'+
+						'<div id="pol_butt_cont">'+
+						'<input type="button" name="pol_butt" id="pol_butt" value="Continuar" onclick="coeficientePol('+ _grado +');" />'+
+						'</div>';
+						document.getElementById('polinomio_in').innerHTML = _html;
+						document.getElementById('coeficiente_pol').focus();
+						posicion = _grado - 1;
+					} else {
+						alert("El " + document.getElementById('grado_pol').value + " no es un número válido.");
+					}
+				}
+			}
+			function muestraPuntos(){
+				$(".puntos_grafica").css("display","inline-block");
+				$("#dat_butt").attr("value","Ocultar tabla");
+				$("#dat_butt").attr("onclick","ocultaPuntos();");
+			}
+			function ocultaPuntos(){
+				$(".puntos_grafica").css("display","");
+				$("#dat_butt").attr("value","Mostrar tabla");
+				$("#dat_butt").attr("onclick","muestraPuntos();");
+			}
+			function realizaOps(){
+				//  Para finalizar se realizan las operaciones correspondientes
+				var _pol_res = opResult(_grado, _polinomio);                                    //  Se obtiene un texto para representar un polinomio a partir del grado y el array de coeficientes
+				var _pol_res_dev = '';                                                          //  Esta variable sirve para guardar el texto del polinomio derivado
+				var _conservar_grado = _grado_real;                                             //  Se guarda el valor del polinomio antes de derivarlo devido que es posible que se cambie este valor al obtener el texto del polinomio derivado
+				var _html = '<h2>El grado es: '+ _grado_real +'</h2> <h3>El polinomio es:</h3> <h4>P<sub>'+ _grado_real +'</sub>(x) = ' + _pol_res + '</h4>';
+				var _raices_intervalo_pol = obtenerIntervalo(_conservar_grado, _polinomio);     //  Aquí se guardan el intervalo donde se encuentre o encuentren las raíces
+				_polinomio_derivado = derivar(_grado, _polinomio);                              //  Se obtiene la derivada del polinomio en otro array
+				_pol_res_dev = opResult((_grado_real - 1),_polinomio_derivado);                 //  Se obtiene el texto del polinomio
+				_html += '<h3>El polinomio derivado es:</h3> <h4>P\'<sub>'+ (_conservar_grado) +'</sub>(x) = ' + _pol_res_dev + '</h4>';
+
+				var _x = (_raices_intervalo_pol[0] * 10).toFixed(1)*1;
+				_html += '<input type="button" name="dat_butt" id="dat_butt" value="Mostrar tabla" onclick="muestraPuntos();" /><br><div class="puntos_grafica"><p>Si se toma f(x) = P<sub>'+ _conservar_grado +'</sub>(x), y se evalúa en el intervalo ['+ _raices_intervalo_pol[0] +', '+ _raices_intervalo_pol[1] +'] con saltos de 0.1 unidades se obtienen los siguientes valores:</p><table style="color: #fff;" border="1">';
+				while(_x <= (_raices_intervalo_pol[1]*10)){
+					var res_f = f_de((_x/10).toFixed(1)*1);
+					var res_f_prima = f_prima_de((_x/10).toFixed(1)*1);
+					_html += '<tr><td id="'+ (res_f > 0? 'positivo' : (res_f < 0? 'negativo' : 'cero')) +'">f('+ (_x/10).toFixed(1)*1 +') = ' + res_f.toFixed(4) + '</td><td id="'+ (res_f_prima > 0? 'positivo' : (res_f_prima < 0? 'negativo' : 'cero')) +'">' + 'f\'('+ (_x/10).toFixed(1)*1 +') = ' + res_f_prima.toFixed(4) + '</td></tr>';
+					_x += 1;
+				}
+				_html += '</table><br></div> <br> <div class="botones_graf"> <input type="button" name="dat_butt_t" id="dat_butt_t" value="+" onclick="maximizaGraf();" /> <input type="button" name="dat_butt_t" id="dat_butt_t" value="-" onclick="minimizaGraf();" /> </div><div id="funcion_pol"><canvas></canvas></div>';
+				_inicio_grafica_c = _raices_intervalo_pol[0];
+				_fin_grafica_c = _raices_intervalo_pol[1];
+
+				$("#polinomio_in").attr("style","padding: 30px; background-color: rgb(153, 160, 230); color: #000;");
+				_html += '<br><div class="m_raices"><p>Raíces reales encontradas en:</p>';
+				obtenerRaices(_inicio_grafica_c, _fin_grafica_c);
+				for(var i = 0; i < _raices.length; i++){
+					_html += '<div style="padding: 15px; display: inline-block;"><div class="raiz_r">x<sub>' + (i+1) + '</sub> = ' + _raices[i] + '</div></div>';
+				}
+				_html += '</div>';
+
+				//  Se modifica la vista para mostrar los resultados
+				$("#polinomio_in").css("max-width","80%");
+				//$("#polinomio_in").css("max-height","700px");
+				document.getElementById('polinomio_in').innerHTML = _html;
+				//  Después de canbiar la información de la vista se escribe la gráfica en canvas
+				generaGrafica(_inicio_grafica_c, _fin_grafica_c, _step_grafica_c);
+
+				//	Estos eventos permiten mover la gráfica
+				canvas.addEventListener("mousedown", function(evt) {
+					var mousePos = oMousePos(canvas, evt);
+					arrastrar = true;
+					delta.x = _X - mousePos.x;
+					delta.y = _Y - mousePos.y;
+				}, false);
+				canvas.addEventListener("mousemove", function(evt) {
+					var mousePos = oMousePos(canvas, evt);
+					if(arrastrar){
+						context.clearRect(0, 0, canvas.width, canvas.height);
+						_X = mousePos.x + delta.x;
+						_Y = mousePos.y + delta.y;
+						generaGrafica(_inicio_grafica_c, _fin_grafica_c, _step_grafica_c);
+					}
+				}, false);
+				canvas.addEventListener("mouseup", function(evt) {
+					arrastrar = false;
+				}, false);
+			}
+
+			//  Se capturan los coeficientes y cuando no falten más por capturar se volverá a cambiar el texto de la vista
+			function coeficientePol(posicion){
+				if(validaInput(document.getElementById('coeficiente_pol').value)){
+					_polinomio[posicion] = parseFloat(document.getElementById('coeficiente_pol').value);
+					var _html = '<p id="bvnda">Ingrese el coeficiente a<sub>'+ (posicion - 1) +'</sub></p>'+
+						'<input type="text" name="coeficiente_pol" id="coeficiente_pol" value="" placeholder="Coeficiente '+ (posicion - 1) +'" onkeyup="if(event.keyCode == 13){ coeficientePol('+ (posicion - 1) +'); }" />'+
+						'<br />'+
+						'<div id="pol_butt_cont">'+
+						'<input type="button" name="pol_butt" id="pol_butt" value="Continuar" onclick="coeficientePol('+ (posicion - 1) +');" />'+
+						'</div>';
+					if(posicion > 0){
+						document.getElementById('polinomio_in').innerHTML = _html;
+						document.getElementById('coeficiente_pol').focus();
+					} else {
+						realizaOps();
+					}
+				} else {
+					alert(document.getElementById('coeficiente_pol').value + "no es un número.")
+				}
+			}
+		</script>
+		<title>Método Newton-Rapson</title>
+		<style>
+			@font-face{ font-family: OpenSans-Regular; src: url(tipografias/OpenSans-Regular.ttf); }
+			@font-face{ font-family: OpenSans-SemiBold; src: url(tipografias/OpenSans-SemiBold.ttf); }
+			@font-face{ font-family: OpenSans-Light; src: url(tipografias/OpenSans-Light.ttf); }
+			html, body{
+				margin: 0;
+				padding: 0;
+				background-color: #ffceb9;
+			}
+			.polinomio_in{
+				margin: auto;
+				font-size: 20px;
+				font-family: 'Roboto', sans-serif;
+				-webkit-box-shadow: 1px 1px 20px 0px rgba(0,0,0,0.75);
+				-moz-box-shadow: 1px 1px 20px 0px rgba(0,0,0,0.75);
+				box-shadow: 1px 1px 20px 0px rgba(0,0,0,0.75);
+			}
+			#bvnda{
+				font-size: 20px;
+				font-family: 'Roboto', sans-serif;
+			}
+			#grado_pol{
+				width: 100px;
+				height: 23px;
+			}
+			#coeficiente_pol{
+				width: 100px;
+				height: 23px;
+			}
+			#pol_butt_cont{
+				width: 90%;
+				padding-bottom: 30px;
+				text-align: center;
+				position: absolute;
+				bottom: 0;
+			}
+			#pol_butt{
+				width: 150px;
+				height: 35px;
+				color: #fff;
+				border-radius: 5px;
+				border: 1px solid lime;
+				background-color: #914040;
+			}
+			#pol_butt:hover{
+				background-color: #93683e;
+			}
+			#negativo{
+				background-color: #a30000;
+			}
+			#positivo{
+				background-color: #007100;
+			}
+			#cero{
+				background-color: #000;
+			}
+			#funcion_pol, canvas{
+				width: 500px;
+				height: 500px;
+				max-width: 100%;
+				/*overflow: auto;*/
+				background-color: #e8eafd;
+			}
+			#funcion_pol{
+				border: 3px solid #914040;
+			}
+			.polinomio_txt{
+				font-size: 17px;
+			}
+			.puntos_grafica{
+				display: none;
+				width: 100%;
+			}
+			.botones_graf{
+				width: 100%;
+			}
+			.botones_graf #dat_butt_t{
+				height: 50px;
+				width: 50px;
+				font-size: 25px;
+				font-weight: bold;
+			}
+			.m_raices{
+				width: 100%;
+				text-align: center;
+				display: inline-block;
+				background-color: #3e3982;
+				color: #fff;
+			}
+			.raiz_r{
+				background-color: #fff;
+				color: black;
+				display: inline-block;
+				padding: 6px;
+				border-radius: 4px;
+			}
+			sub, sup{
+				font-size: 11px;
+			}
+			table{ width: 100%; }
+			@media screen and (max-width: 700px){
+				#funcion_pol, canvas{
+					height: 450px;
+				}
+			}
+			@media screen and (max-width: 600px){
+				#funcion_pol, canvas{
+					height: 400px;
+				}
+			}
+			@media screen and (max-width: 500px){
+				#funcion_pol, canvas{
+					height: 350px;
+				}
+			}
+			@media screen and (max-width: 400px){
+				#funcion_pol, canvas{
+					height: 300px;
+				}
+			}
+			@media screen and (max-width: 300px){
+				#funcion_pol, canvas{
+					height: 250px;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<div id="polinomio_in" class="polinomio_in" style="top: 0; bottom: 0; left: 0; right: 0; max-width: 500px; max-height: 300px; width: 90%; height: 90%; background-color: #914040; color: #fff; position: absolute; border-radius: 10px; padding: 20px; overflow: auto;">
+			<h3>Polinomios de la forma:</h3> <p class="polinomio_txt">a<sub>n</sub>x<sup>n</sup> + a<sub>n-1</sub>x<sup>n-1</sup> + a<sub>n-2</sub>x<sup>n-2</sup> + ... + a<sub>2</sub>x<sup>2</sup> + a<sub>1</sub>x + a<sub>0</sub></p>
+			<p id="bvnda">Ingrese el grado del polinomio</p>
+			<input type="number" min="0" name="grado_pol" id="grado_pol" placeholder="Grado" value="" onkeyup="if(event.keyCode == 13){ gradoPol(); }" />
+			<br />
+			<div id="pol_butt_cont">
+				<input type="button" name="pol_butt" id="pol_butt" value="Continuar" onclick="gradoPol();" />
+			</div>
+		</div>
+	</body>
+</html>
